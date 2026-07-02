@@ -113,7 +113,7 @@ build_generation_config() {
     echo "$json"
 }
 
-# --- 运行单个数据集 ---
+# --- 运行单个数据集（在测试容器内执行） ---
 run_eval_dataset() {
     local dataset_name="$1"
     local ts; ts=$(timestamp)
@@ -133,35 +133,31 @@ run_eval_dataset() {
     log_info "  generation-config: ${gen_json}"
 
     # 判断是否需要 Judge
-    local judge_args=()
+    local judge_args=""
     for jds in "${JUDGE_DATASETS[@]}"; do
         if [[ "$jds" == "$dataset_name" ]]; then
             local j_url="${JUDGE_API_URL:-${EVAL_URL}/v1}"
             local j_key="${JUDGE_API_KEY:-EMPTY}"
             local j_model="${JUDGE_MODEL_ID:-${MODEL_NAME}}"
-            judge_args=(
-                --judge-strategy llm
-                --judge-model-args "{\"api_url\": \"${j_url}\", \"api_key\": \"${j_key}\", \"model_id\": \"${j_model}\"}"
-            )
+            judge_args="--judge-strategy llm --judge-model-args '{\"api_url\": \"${j_url}\", \"api_key\": \"${j_key}\", \"model_id\": \"${j_model}\"}'"
             break
         fi
     done
 
-    evalscope eval \
-        --model "$MODEL_NAME" \
-        --api-url "${EVAL_URL}/v1" \
-        --api-key "EMPTY" \
+    docker exec "$TEST_CONTAINER" bash -c "cd /dir && evalscope eval \
+        --model '$MODEL_NAME' \
+        --api-url '${EVAL_URL}/v1' \
+        --api-key 'EMPTY' \
         --eval-type openai_api \
-        --datasets "$dataset_name" \
-        --generation-config "$gen_json" \
+        --datasets '$dataset_name' \
+        --generation-config '$gen_json' \
         --timeout 10000 \
         --stream \
-        --eval-batch-size "$EVAL_BATCH_SIZE" \
-        --dataset-args "{\"${dataset_name}\":${inner}}" \
-        --work-dir "$work_dir" \
+        --eval-batch-size $EVAL_BATCH_SIZE \
+        --dataset-args '{\"${dataset_name}\":${inner}}' \
+        --work-dir '/dir/${work_dir}' \
         --ignore-errors \
-        "${judge_args[@]}" \
-        2>&1 | tee "${EVAL_LOG_DIR}/${dataset_name}_${ts}.log"
+        ${judge_args}" 2>&1 | tee "${EVAL_LOG_DIR}/${dataset_name}_${ts}.log"
 
     return ${PIPESTATUS[0]}
 }
@@ -181,6 +177,12 @@ check_eval_anomaly() {
 }
 
 # --- 主逻辑 ---
+# 检查测试容器运行状态
+if ! container_running "$TEST_CONTAINER"; then
+    log_error "测试容器 ${TEST_CONTAINER} 未运行!"
+    exit 1
+fi
+
 log_info "评测模型: ${MODEL_NAME}"
 log_info "评测地址: ${EVAL_URL}"
 log_info "数据集: ${EVAL_DATASETS}"

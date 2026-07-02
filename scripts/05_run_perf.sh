@@ -49,13 +49,19 @@ LOG_FILE="${TEST_OUTPUT_DIR}/perf_${PERF_MODE}_${TIMESTAMP}.log"
 log_info "测试输出目录: ${TEST_OUTPUT_DIR}"
 log_info "性能日志文件: ${LOG_FILE}"
 
-# --- 检查 evalscope ---
-if ! command -v evalscope &>/dev/null; then
-    log_error "evalscope 未安装! 请先运行 Phase 2。"
+# --- 检查测试容器运行状态 ---
+if ! container_running "$TEST_CONTAINER"; then
+    log_error "测试容器 ${TEST_CONTAINER} 未运行!"
     exit 1
 fi
 
-# --- 运行单次性能测试 ---
+# --- 检查容器内 evalscope ---
+if ! docker exec "$TEST_CONTAINER" bash -c "command -v evalscope" &>/dev/null; then
+    log_error "测试容器内 evalscope 未安装! 请先运行 Phase 2。"
+    exit 1
+fi
+
+# --- 运行单次性能测试（在测试容器内执行） ---
 run_perf_single() {
     local rate="$1"
     local parallel="$2"
@@ -63,22 +69,22 @@ run_perf_single() {
 
     echo "Running with rate=${rate}, parallel=${parallel}" | tee -a "$LOG_FILE"
 
-    evalscope perf \
-        --url "$PERF_URL" \
-        --model "$MODEL_NAME" \
+    docker exec "$TEST_CONTAINER" bash -c "cd /dir && evalscope perf \
+        --url '$PERF_URL' \
+        --model '$MODEL_NAME' \
         --dataset random \
-        --api-key "" \
-        --parallel "$parallel" \
-        --rate "$rate" \
-        --number "$num" \
-        --temperature "$PERF_TEMP" \
-        --max-prompt-length "$INPUT_LEN" \
-        --min-prompt-length "$INPUT_LEN" \
-        --max-tokens "$OUTPUT_LEN" \
-        --min-tokens "$OUTPUT_LEN" \
+        --api-key '' \
+        --parallel $parallel \
+        --rate $rate \
+        --number $num \
+        --temperature $PERF_TEMP \
+        --max-prompt-length $INPUT_LEN \
+        --min-prompt-length $INPUT_LEN \
+        --max-tokens $OUTPUT_LEN \
+        --min-tokens $OUTPUT_LEN \
         --prefix-length 0 \
-        --tokenizer-path "$TOKENIZER_PATH" \
-        --name "$MODEL_NAME" 2>&1 | tee -a "$LOG_FILE"
+        --tokenizer-path '$TOKENIZER_PATH' \
+        --name '$MODEL_NAME'" 2>&1 | tee -a "$LOG_FILE"
 
     local exit_code=${PIPESTATUS[0]}
     echo "Finished rate=${rate}, parallel=${parallel}" | tee -a "$LOG_FILE"
