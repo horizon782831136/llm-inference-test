@@ -35,7 +35,8 @@ if [[ -n "$SERVICE_SCRIPT" ]]; then
     log_info "服务日志: ${SERVICE_LOG}"
 
     # 在容器内后台执行服务脚本，日志输出到脚本同目录
-    docker exec -d "$CONTAINER_NAME" bash -c "cd /dir && bash ${SERVICE_SCRIPT} > /dir/${SERVICE_LOG} 2>&1"
+    # SERVICE_LOG 已经是容器内绝对路径（如 /dir/qwen3.5/.../service_xxx.log）
+    docker exec -d "$CONTAINER_NAME" bash -c "bash ${SERVICE_SCRIPT} > ${SERVICE_LOG} 2>&1"
     log_info "服务启动命令已发送"
 else
     SERVICE_LOG="service_${TIMESTAMP}.log"
@@ -52,7 +53,7 @@ log_info "等待服务就绪 (端口: ${SERVICE_PORT}, 超时: ${SERVICE_TIMEOUT
 if ! wait_for "服务端口就绪" "$SERVICE_TIMEOUT" 10 check_service_health; then
     log_error "服务启动超时!"
     log_error "容器内服务日志 (最后50行):"
-    docker exec "$CONTAINER_NAME" tail -50 "/dir/${SERVICE_LOG}" 2>/dev/null || true
+    docker exec "$CONTAINER_NAME" tail -50 "${SERVICE_LOG}" 2>/dev/null || true
     exit 1
 fi
 
