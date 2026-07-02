@@ -79,32 +79,40 @@ var PRESETS = {
         hardware_type: 'p800', workspace: '/ssd3/liuwei', xpu_num: 8,
         model_name: 'DeepSeek-V4-Flash-INT8', model_path: '/ssd4/models/DeepSeek-V4-Flash-INT8',
         tokenizer_path: '/ssd4/models/DeepSeek-V4-Flash-INT8',
-        image_source: 'registry', image_id: 'iregistry.baidu-int.com/xpu/sglang-p800-pd-disagg-056:20260512_386',
-        container_name: 'lw_xsgl_056', shared_memory_size: '256g', tmpfs_size: '32g',
+        service_image_source: 'registry', service_image_id: 'iregistry.baidu-int.com/xpu/sglang-p800-pd-disagg-056:20260512_386',
+        service_container_name: 'lw_xsgl_056', service_tmpfs_size: '32g',
+        test_image_source: 'registry', test_image_id: 'iregistry.baidu-int.com/xpu/infer_qa:v4.0',
+        test_container_name: 'lw_qa_infer', test_tmpfs_size: '32g',
         service_port: 30000, perf_input_len: 9000, perf_output_len: 100,
     },
     p800_vllm: {
         hardware_type: 'p800', workspace: '/ssd3/liuwei', xpu_num: 8,
         model_name: 'Qwen3.5-27B', model_path: '/ssd3/models/Qwen3.5-27B',
         tokenizer_path: '/ssd3/models/Qwen3.5-27B',
-        image_source: 'registry', image_id: 'iregistry.baidu-int.com/xpu/infer_qa:v4.0',
-        container_name: 'lw_qa_infer', shared_memory_size: '256g', tmpfs_size: '32g',
+        service_image_source: 'registry', service_image_id: 'iregistry.baidu-int.com/xpu/infer_qa:v4.0',
+        service_container_name: 'lw_qa_infer', service_tmpfs_size: '32g',
+        test_image_source: 'registry', test_image_id: 'iregistry.baidu-int.com/xpu/infer_qa:v4.0',
+        test_container_name: 'lw_qa_test', test_tmpfs_size: '32g',
         service_port: 30000, perf_input_len: 2600, perf_output_len: 30,
     },
     h20_vllm: {
         hardware_type: 'h20', workspace: '/ssd3/liuwei', xpu_num: 8,
         model_name: 'Qwen3.5-27B', model_path: '/ssd3/models/Qwen3.5-27B',
         tokenizer_path: '/ssd3/models/Qwen3.5-27B',
-        image_source: 'registry', image_id: 'vllm/vllm-openai:v0.17.0',
-        container_name: 'lw_qwen', shared_memory_size: '256g', tmpfs_size: '32g',
+        service_image_source: 'registry', service_image_id: 'vllm/vllm-openai:v0.17.0',
+        service_container_name: 'lw_qwen', service_tmpfs_size: '256g',
+        test_image_source: 'registry', test_image_id: 'iregistry.baidu-int.com/xpu/infer_qa:v4.0',
+        test_container_name: 'lw_qa_test', test_tmpfs_size: '32g',
         service_port: 30000, perf_input_len: 9000, perf_output_len: 100,
     },
     h20_sglang: {
         hardware_type: 'h20', workspace: '/ssd3/liuwei', xpu_num: 8,
         model_name: 'DeepSeek-V4-Flash-INT8', model_path: '/ssd4/models/DeepSeek-V4-Flash-INT8',
         tokenizer_path: '/ssd4/models/DeepSeek-V4-Flash-INT8',
-        image_source: 'registry', image_id: 'lmsysorg/sglang:latest',
-        container_name: 'lw_sglang', shared_memory_size: '256g', tmpfs_size: '32g',
+        service_image_source: 'registry', service_image_id: 'lmsysorg/sglang:latest',
+        service_container_name: 'lw_sglang', service_tmpfs_size: '256g',
+        test_image_source: 'registry', test_image_id: 'iregistry.baidu-int.com/xpu/infer_qa:v4.0',
+        test_container_name: 'lw_qa_test', test_tmpfs_size: '32g',
         service_port: 30000, perf_input_len: 9000, perf_output_len: 100,
     },
 };
@@ -167,11 +175,12 @@ function configApplyPreset(name) {
     configGenerate();
 }
 
-function onImageSourceChange() {
-    var src = document.getElementById('cfg-image_source').value;
-    document.getElementById('cfg-image_id-group').style.display = src === 'registry' ? '' : 'none';
-    document.getElementById('cfg-image_url-group').style.display = src === 'url' ? '' : 'none';
-    document.getElementById('cfg-image_tar-group').style.display = (src === 'tar' || src === 'tar_gz') ? '' : 'none';
+function onImageSourceChange(prefix) {
+    prefix = prefix || 'service';
+    var src = document.getElementById('cfg-' + prefix + '_image_source').value;
+    document.getElementById('cfg-' + prefix + '_image_id-group').style.display = src === 'registry' ? '' : 'none';
+    document.getElementById('cfg-' + prefix + '_image_url-group').style.display = src === 'url' ? '' : 'none';
+    document.getElementById('cfg-' + prefix + '_image_tar-group').style.display = (src === 'tar' || src === 'tar_gz') ? '' : 'none';
 }
 
 // --- Rate/Parallel 编辑器 ---
@@ -270,18 +279,32 @@ function configGenerate() {
     lines.push('model_download_id: "' + gv('cfg-model_download_id') + '"');
     lines.push('');
 
-    lines.push('# --- 镜像 ---');
-    lines.push('image_source: "' + gv('cfg-image_source') + '"');
-    lines.push('image_id: "' + gv('cfg-image_id') + '"');
-    lines.push('image_url: "' + gv('cfg-image_url') + '"');
-    lines.push('image_tar_path: "' + gv('cfg-image_tar_path') + '"');
+    lines.push('# --- 服务镜像 ---');
+    lines.push('service_image_source: "' + gv('cfg-service_image_source') + '"');
+    lines.push('service_image_id: "' + gv('cfg-service_image_id') + '"');
+    lines.push('service_image_url: "' + gv('cfg-service_image_url') + '"');
+    lines.push('service_image_tar_path: "' + gv('cfg-service_image_tar_path') + '"');
     lines.push('');
 
-    lines.push('# --- 容器 ---');
-    lines.push('container_name: "' + gv('cfg-container_name') + '"');
-    lines.push('shared_memory_size: "' + gv('cfg-shared_memory_size') + '"');
-    lines.push('tmpfs_size: "' + gv('cfg-tmpfs_size') + '"');
-    lines.push('extra_volumes: "' + gv('cfg-extra_volumes') + '"');
+    lines.push('# --- 服务容器 ---');
+    lines.push('service_container_name: "' + gv('cfg-service_container_name') + '"');
+    lines.push('service_shared_memory_size: "256g"');
+    lines.push('service_tmpfs_size: "' + gv('cfg-service_tmpfs_size') + '"');
+    lines.push('service_extra_volumes: "' + gv('cfg-service_extra_volumes') + '"');
+    lines.push('');
+
+    lines.push('# --- 测试镜像 ---');
+    lines.push('test_image_source: "' + gv('cfg-test_image_source') + '"');
+    lines.push('test_image_id: "' + gv('cfg-test_image_id') + '"');
+    lines.push('test_image_url: "' + gv('cfg-test_image_url') + '"');
+    lines.push('test_image_tar_path: "' + gv('cfg-test_image_tar_path') + '"');
+    lines.push('');
+
+    lines.push('# --- 测试容器 ---');
+    lines.push('test_container_name: "' + gv('cfg-test_container_name') + '"');
+    lines.push('test_shared_memory_size: "256g"');
+    lines.push('test_tmpfs_size: "' + gv('cfg-test_tmpfs_size') + '"');
+    lines.push('test_extra_volumes: "' + gv('cfg-test_extra_volumes') + '"');
     lines.push('');
 
     lines.push('# --- 服务 ---');

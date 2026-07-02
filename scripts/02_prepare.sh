@@ -12,10 +12,18 @@ log_step "Phase 2: 模型与镜像准备"
 MODEL_DOWNLOAD_SOURCE="${CFG_MODEL_DOWNLOAD_SOURCE:-}"
 MODEL_DOWNLOAD_ID="${CFG_MODEL_DOWNLOAD_ID:-}"
 MODEL_PATH="${CFG_MODEL_PATH:-}"
-IMAGE_SOURCE="${CFG_IMAGE_SOURCE:-registry}"
-IMAGE_ID="${CFG_IMAGE_ID:-}"
-IMAGE_URL="${CFG_IMAGE_URL:-}"
-IMAGE_TAR_PATH="${CFG_IMAGE_TAR_PATH:-}"
+
+# 服务镜像
+SVC_IMAGE_SOURCE="${CFG_SERVICE_IMAGE_SOURCE:-registry}"
+SVC_IMAGE_ID="${CFG_SERVICE_IMAGE_ID:-}"
+SVC_IMAGE_URL="${CFG_SERVICE_IMAGE_URL:-}"
+SVC_IMAGE_TAR_PATH="${CFG_SERVICE_IMAGE_TAR_PATH:-}"
+
+# 测试镜像
+TEST_IMAGE_SOURCE="${CFG_TEST_IMAGE_SOURCE:-registry}"
+TEST_IMAGE_ID="${CFG_TEST_IMAGE_ID:-iregistry.baidu-int.com/xpu/infer_qa:v4.0}"
+TEST_IMAGE_URL="${CFG_TEST_IMAGE_URL:-}"
+TEST_IMAGE_TAR_PATH="${CFG_TEST_IMAGE_TAR_PATH:-}"
 
 # ===== 模型准备 =====
 prepare_model() {
@@ -57,54 +65,55 @@ prepare_model() {
     esac
 }
 
-# ===== 镜像准备 =====
-prepare_image() {
-    log_info "--- 镜像准备 ---"
+# ===== 镜像准备（通用函数） =====
+prepare_single_image() {
+    local role="$1"       # "服务" or "测试"
+    local IMAGE_SOURCE="$2"
+    local IMAGE_ID="$3"
+    local IMAGE_URL="$4"
+    local IMAGE_TAR_PATH="$5"
+
+    log_info "--- ${role}镜像准备 ---"
 
     case "$IMAGE_SOURCE" in
         registry)
             if [[ -z "$IMAGE_ID" ]]; then
-                log_error "image_id 未配置!"
+                log_error "${role}镜像 image_id 未配置!"
                 return 1
             fi
-            # 检查镜像是否已存在
             if image_exists "$IMAGE_ID"; then
-                log_info "镜像已存在: ${IMAGE_ID}"
+                log_info "${role}镜像已存在: ${IMAGE_ID}"
                 return 0
             fi
-            # 检查网络
-            local registry_host="${IMAGE_ID%%/*}"
             if ! check_network; then
                 log_error "网络不可达! 请设置代理后重试:"
                 log_error "  export http_proxy=http://your-proxy:port"
                 log_error "  export https_proxy=http://your-proxy:port"
                 return 1
             fi
-            log_info "拉取镜像: ${IMAGE_ID}"
+            log_info "拉取${role}镜像: ${IMAGE_ID}"
             docker pull "$IMAGE_ID"
             ;;
         tar)
             if [[ -z "$IMAGE_TAR_PATH" || ! -f "$IMAGE_TAR_PATH" ]]; then
-                log_error "tar 文件不存在: ${IMAGE_TAR_PATH}"
+                log_error "${role}镜像 tar 文件不存在: ${IMAGE_TAR_PATH}"
                 return 1
             fi
-            log_info "导入镜像 (tar): ${IMAGE_TAR_PATH}"
+            log_info "导入${role}镜像 (tar): ${IMAGE_TAR_PATH}"
             docker load -i "$IMAGE_TAR_PATH"
             ;;
         tar_gz)
             if [[ -z "$IMAGE_TAR_PATH" || ! -f "$IMAGE_TAR_PATH" ]]; then
-                log_error "tar.gz 文件不存在: ${IMAGE_TAR_PATH}"
+                log_error "${role}镜像 tar.gz 文件不存在: ${IMAGE_TAR_PATH}"
                 return 1
             fi
-            log_info "解压并导入镜像 (tar.gz): ${IMAGE_TAR_PATH}"
+            log_info "解压并导入${role}镜像 (tar.gz): ${IMAGE_TAR_PATH}"
             local tar_file="${IMAGE_TAR_PATH%.gz}"
             tar -xzvf "$IMAGE_TAR_PATH" -C "$(dirname "$IMAGE_TAR_PATH")"
-            # 找到解压后的 tar 文件
             if [[ -f "$tar_file" ]]; then
                 docker load -i "$tar_file"
-                rm -f "$tar_file"  # 清理解压后的中间文件
+                rm -f "$tar_file"
             else
-                # 尝试找到目录下的 .tar 文件
                 local found_tar
                 found_tar=$(find "$(dirname "$IMAGE_TAR_PATH")" -maxdepth 1 -name "*.tar" -newer "$IMAGE_TAR_PATH" | head -1)
                 if [[ -n "$found_tar" ]]; then
@@ -117,22 +126,21 @@ prepare_image() {
             ;;
         url)
             if [[ -z "$IMAGE_URL" ]]; then
-                log_error "image_url 未配置!"
+                log_error "${role}镜像 image_url 未配置!"
                 return 1
             fi
             if ! check_network; then
                 log_error "网络不可达! 请设置代理后重试。"
                 return 1
             fi
-            log_info "下载镜像: ${IMAGE_URL}"
+            log_info "下载${role}镜像: ${IMAGE_URL}"
             local download_path="/tmp/image_download_$(timestamp).tar"
-            # 判断是否是 .tar.gz
             if [[ "$IMAGE_URL" == *.tar.gz ]]; then
                 download_path="${download_path}.gz"
             fi
             wget -O "$download_path" "$IMAGE_URL"
             if [[ $? -ne 0 ]]; then
-                log_error "镜像下载失败!"
+                log_error "${role}镜像下载失败!"
                 return 1
             fi
             if [[ "$download_path" == *.gz ]]; then
@@ -149,7 +157,7 @@ prepare_image() {
             ;;
     esac
 
-    log_info "镜像准备完成 ✓"
+    log_info "${role}镜像准备完成 ✓"
 }
 
 # ===== evalscope 安装 =====
@@ -172,7 +180,13 @@ ensure_evalscope() {
 
 # --- 主逻辑 ---
 prepare_model || exit 1
-prepare_image || exit 1
+
+# 准备服务镜像
+prepare_single_image "服务" "$SVC_IMAGE_SOURCE" "$SVC_IMAGE_ID" "$SVC_IMAGE_URL" "$SVC_IMAGE_TAR_PATH" || exit 1
+
+# 准备测试镜像
+prepare_single_image "测试" "$TEST_IMAGE_SOURCE" "$TEST_IMAGE_ID" "$TEST_IMAGE_URL" "$TEST_IMAGE_TAR_PATH" || exit 1
+
 ensure_evalscope
 
 log_info "Phase 2 完成 ✓"

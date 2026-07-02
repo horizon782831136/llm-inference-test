@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # Phase 5: 性能测试
-# 使用 evalscope perf 进行性能基准测试
+# 在测试容器内使用 evalscope perf 进行性能基准测试
 # 支持 benchmark(多rate梯度) 和 single(单配置) 两种模式
 # ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,6 +10,7 @@ source "${SCRIPT_DIR}/utils.sh"
 log_step "Phase 5: 性能测试"
 
 # --- 参数 ---
+TEST_CONTAINER="${CFG_TEST_CONTAINER_NAME:-lw_qa_infer}"
 MODEL_NAME="${CFG_MODEL_NAME:-}"
 TOKENIZER_PATH="${CFG_TOKENIZER_PATH:-${CFG_MODEL_PATH:-}}"
 SERVICE_PORT="${CFG_SERVICE_PORT:-30000}"

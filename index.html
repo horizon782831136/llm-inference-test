@@ -3,17 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QATools 配置管理平台</title>
+    <title>配置管理平台</title>
     <link rel="stylesheet" href="./style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
 </head>
 <body>
     <!-- 顶部导航 -->
     <nav class="navbar">
-        <div class="nav-brand">
-            <span class="nav-logo">QA</span>
-            <span class="nav-title">QATools 配置管理平台</span>
-        </div>
         <div class="nav-actions">
             <button class="btn btn-ghost active" data-tab="config" onclick="showTab('config')">配置管理</button>
             <button class="btn btn-ghost" data-tab="cmdgen" onclick="showTab('cmdgen')">命令生成</button>
@@ -89,52 +85,81 @@
                 </div>
             </div>
 
-            <!-- 镜像配置 + 容器配置 -->
+            <!-- 服务镜像/容器 + 测试镜像/容器 -->
             <div class="cmdgen-config-row">
                 <div class="card">
-                    <h2 class="card-title">镜像配置</h2>
+                    <h2 class="card-title">服务镜像 & 容器</h2>
                     <div class="cmdgen-form-grid">
                         <div class="cmdgen-form-group">
                             <label>镜像来源</label>
-                            <select id="cfg-image_source" onchange="onImageSourceChange(); configGenerate()">
+                            <select id="cfg-service_image_source" onchange="onImageSourceChange('service'); configGenerate()">
                                 <option value="registry" selected>Registry 拉取</option>
                                 <option value="tar">本地 tar 包</option>
                                 <option value="tar_gz">本地 tar.gz 包</option>
                                 <option value="url">URL 下载</option>
                             </select>
                         </div>
-                        <div class="cmdgen-form-group" id="cfg-image_id-group">
-                            <label>镜像ID</label>
-                            <input type="text" id="cfg-image_id" value="vllm/vllm-openai:v0.17.0" oninput="configGenerate()">
+                        <div class="cmdgen-form-group" id="cfg-service_image_id-group">
+                            <label>服务镜像ID</label>
+                            <input type="text" id="cfg-service_image_id" value="iregistry.baidu-int.com/xpu/sglang-p800-pd-disagg-056:20260512_386" oninput="configGenerate()">
                         </div>
-                        <div class="cmdgen-form-group full-width" id="cfg-image_url-group" style="display:none">
+                        <div class="cmdgen-form-group full-width" id="cfg-service_image_url-group" style="display:none">
                             <label>镜像下载URL</label>
-                            <input type="text" id="cfg-image_url" value="" placeholder="https://..." oninput="configGenerate()">
+                            <input type="text" id="cfg-service_image_url" value="" placeholder="https://..." oninput="configGenerate()">
                         </div>
-                        <div class="cmdgen-form-group full-width" id="cfg-image_tar-group" style="display:none">
+                        <div class="cmdgen-form-group full-width" id="cfg-service_image_tar-group" style="display:none">
                             <label>本地镜像文件路径</label>
-                            <input type="text" id="cfg-image_tar_path" value="" placeholder="/path/to/image.tar" oninput="configGenerate()">
+                            <input type="text" id="cfg-service_image_tar_path" value="" placeholder="/path/to/image.tar" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>服务容器名称</label>
+                            <input type="text" id="cfg-service_container_name" value="lw_sglang" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>共享内存/tmpfs</label>
+                            <input type="text" id="cfg-service_tmpfs_size" value="32g" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width">
+                            <label>额外挂载目录</label>
+                            <input type="text" id="cfg-service_extra_volumes" value="" placeholder="逗号分隔" oninput="configGenerate()">
                         </div>
                     </div>
                 </div>
                 <div class="card">
-                    <h2 class="card-title">容器配置</h2>
+                    <h2 class="card-title">测试镜像 & 容器</h2>
                     <div class="cmdgen-form-grid">
                         <div class="cmdgen-form-group">
-                            <label>容器名称</label>
-                            <input type="text" id="cfg-container_name" value="lw_test" oninput="configGenerate()">
+                            <label>镜像来源</label>
+                            <select id="cfg-test_image_source" onchange="onImageSourceChange('test'); configGenerate()">
+                                <option value="registry" selected>Registry 拉取</option>
+                                <option value="tar">本地 tar 包</option>
+                                <option value="tar_gz">本地 tar.gz 包</option>
+                                <option value="url">URL 下载</option>
+                            </select>
+                        </div>
+                        <div class="cmdgen-form-group" id="cfg-test_image_id-group">
+                            <label>测试镜像ID</label>
+                            <input type="text" id="cfg-test_image_id" value="iregistry.baidu-int.com/xpu/infer_qa:v4.0" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width" id="cfg-test_image_url-group" style="display:none">
+                            <label>镜像下载URL</label>
+                            <input type="text" id="cfg-test_image_url" value="" placeholder="https://..." oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width" id="cfg-test_image_tar-group" style="display:none">
+                            <label>本地镜像文件路径</label>
+                            <input type="text" id="cfg-test_image_tar_path" value="" placeholder="/path/to/image.tar" oninput="configGenerate()">
                         </div>
                         <div class="cmdgen-form-group">
-                            <label>共享内存大小</label>
-                            <input type="text" id="cfg-shared_memory_size" value="256g" oninput="configGenerate()">
+                            <label>测试容器名称</label>
+                            <input type="text" id="cfg-test_container_name" value="lw_qa_infer" oninput="configGenerate()">
                         </div>
                         <div class="cmdgen-form-group">
-                            <label>tmpfs 大小 (P800)</label>
-                            <input type="text" id="cfg-tmpfs_size" value="32g" oninput="configGenerate()">
+                            <label>共享内存/tmpfs</label>
+                            <input type="text" id="cfg-test_tmpfs_size" value="32g" oninput="configGenerate()">
                         </div>
                         <div class="cmdgen-form-group full-width">
                             <label>额外挂载目录</label>
-                            <input type="text" id="cfg-extra_volumes" value="" placeholder="逗号分隔，如 /data1:/data1,/data2:/data2" oninput="configGenerate()">
+                            <input type="text" id="cfg-test_extra_volumes" value="" placeholder="逗号分隔" oninput="configGenerate()">
                         </div>
                     </div>
                 </div>
@@ -476,7 +501,7 @@
     </main>
 
     <footer class="footer">
-        <span>QATools 配置管理平台 · 自动化测试工作流</span>
+        <span>配置管理平台 · 自动化测试工作流</span>
     </footer>
 
     <script src="./app.js"></script>

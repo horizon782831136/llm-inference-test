@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # Phase 6: 精度测试
-# 使用 evalscope eval 进行精度评测
+# 在测试容器内使用 evalscope eval 进行精度评测
 # ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
@@ -9,6 +9,7 @@ source "${SCRIPT_DIR}/utils.sh"
 log_step "Phase 6: 精度测试"
 
 # --- 参数 ---
+TEST_CONTAINER="${CFG_TEST_CONTAINER_NAME:-lw_qa_infer}"
 MODEL_NAME="${CFG_MODEL_NAME:-}"
 SERVICE_PORT="${CFG_SERVICE_PORT:-30000}"
 EVAL_URL="${CFG_EVAL_URL:-}"

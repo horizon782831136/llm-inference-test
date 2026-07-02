@@ -15,17 +15,30 @@ tokenizer_path: "/ssd3/models/Qwen3.5-27B"
 model_download_source: ""      # 留空=已有模型, "modelscope"=从modelscope下载
 model_download_id: ""          # modelscope model id, 如 "MiniMax/MiniMax-M3"
 
-# --- 镜像 ---
-image_source: "registry"       # registry / tar / tar_gz / url
-image_id: "vllm/vllm-openai:v0.17.0"
-image_url: ""                  # image_source=url 时填写下载链接
-image_tar_path: ""             # image_source=tar/tar_gz 时填写本地路径
+# --- 服务镜像 ---
+service_image_source: "registry"   # registry / tar / tar_gz / url
+service_image_id: "iregistry.baidu-int.com/xpu/sglang-p800-pd-disagg-056:20260512_386"
+service_image_url: ""              # image_source=url 时填写下载链接
+service_image_tar_path: ""         # image_source=tar/tar_gz 时填写本地路径
 
-# --- 容器 ---
-container_name: "lw_test"
-shared_memory_size: "256g"     # H20 的 --shm-size
-tmpfs_size: "32g"              # P800 的 tmpfs size
-extra_volumes: ""              # 额外挂载, 逗号分隔, 如 "/data1:/data1,/data2:/data2"
+# --- 服务容器 ---
+service_container_name: "lw_sglang"
+service_shared_memory_size: "256g"   # H20 的 --shm-size
+service_tmpfs_size: "32g"            # P800 的 tmpfs size
+service_extra_volumes: ""            # 额外挂载, 逗号分隔
+
+# --- 测试镜像 ---
+test_image_source: "registry"      # registry / tar / tar_gz / url
+test_image_id: "iregistry.baidu-int.com/xpu/infer_qa:v4.0"
+test_image_url: ""
+test_image_tar_path: ""
+# 测试镜像下载地址(备注): https://klx-sdk-release-public.su.bcebos.com/DS_PD/docker/infer_qa_v4.0.tar.gz
+
+# --- 测试容器 ---
+test_container_name: "lw_qa_infer"
+test_shared_memory_size: "256g"
+test_tmpfs_size: "32g"
+test_extra_volumes: ""
 
 # --- 服务 ---
 service_script: ""             # 服务启动脚本路径（容器内路径），留空则需手动启动
