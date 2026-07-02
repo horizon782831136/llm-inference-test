@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QATools 配置管理平台</title>
+    <link rel="stylesheet" href="./style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="nav-logo">QA</span>
+            <span class="nav-title">QATools 配置管理平台</span>
+        </div>
+        <div class="nav-actions">
+            <button class="btn btn-ghost active" data-tab="config" onclick="showTab('config')">配置管理</button>
+            <button class="btn btn-ghost" data-tab="cmdgen" onclick="showTab('cmdgen')">命令生成</button>
+            <button class="btn btn-ghost" data-tab="scripts" onclick="showTab('scripts')">脚本预览</button>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- ==================== 配置管理面板 ==================== -->
+        <section id="tab-config" class="tab-content active">
+            <!-- 预设模板 -->
+            <div class="card">
+                <h2 class="card-title">快速预设</h2>
+                <div class="preset-buttons">
+                    <button class="preset-btn" onclick="configApplyPreset('p800_sglang')">P800 + SGLang</button>
+                    <button class="preset-btn" onclick="configApplyPreset('p800_vllm')">P800 + vLLM</button>
+                    <button class="preset-btn" onclick="configApplyPreset('h20_vllm')">H20 + vLLM</button>
+                    <button class="preset-btn" onclick="configApplyPreset('h20_sglang')">H20 + SGLang</button>
+                </div>
+            </div>
+
+            <!-- 硬件与环境 + 模型配置 -->
+            <div class="cmdgen-config-row">
+                <div class="card">
+                    <h2 class="card-title">硬件与环境</h2>
+                    <div class="cmdgen-form-grid">
+                        <div class="cmdgen-form-group">
+                            <label>硬件类型</label>
+                            <select id="cfg-hardware_type" onchange="configGenerate()">
+                                <option value="auto" selected>auto (自动检测)</option>
+                                <option value="p800">P800 (昆仑XPU)</option>
+                                <option value="h20">H20 (NVIDIA GPU)</option>
+                            </select>
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>设备数量</label>
+                            <input type="number" id="cfg-xpu_num" value="8" min="1" max="16" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width">
+                            <label>工作目录</label>
+                            <input type="text" id="cfg-workspace" value="/ssd3/liuwei" oninput="configGenerate()">
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2 class="card-title">模型配置</h2>
+                    <div class="cmdgen-form-grid">
+                        <div class="cmdgen-form-group full-width">
+                            <label>模型名称</label>
+                            <input type="text" id="cfg-model_name" value="Qwen3.5-27B" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width">
+                            <label>模型路径</label>
+                            <input type="text" id="cfg-model_path" value="/ssd3/models/Qwen3.5-27B" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width">
+                            <label>Tokenizer 路径</label>
+                            <input type="text" id="cfg-tokenizer_path" value="/ssd3/models/Qwen3.5-27B" oninput="configGenerate()">
+                            <span class="cmdgen-hint">留空则使用模型路径</span>
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>下载来源</label>
+                            <select id="cfg-model_download_source" onchange="configGenerate()">
+                                <option value="" selected>已有模型</option>
+                                <option value="modelscope">ModelScope</option>
+                            </select>
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>ModelScope ID</label>
+                            <input type="text" id="cfg-model_download_id" value="" placeholder="如 MiniMax/MiniMax-M3" oninput="configGenerate()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 镜像配置 + 容器配置 -->
+            <div class="cmdgen-config-row">
+                <div class="card">
+                    <h2 class="card-title">镜像配置</h2>
+                    <div class="cmdgen-form-grid">
+                        <div class="cmdgen-form-group">
+                            <label>镜像来源</label>
+                            <select id="cfg-image_source" onchange="onImageSourceChange(); configGenerate()">
+                                <option value="registry" selected>Registry 拉取</option>
+                                <option value="tar">本地 tar 包</option>
+                                <option value="tar_gz">本地 tar.gz 包</option>
+                                <option value="url">URL 下载</option>
+                            </select>
+                        </div>
+                        <div class="cmdgen-form-group" id="cfg-image_id-group">
+                            <label>镜像ID</label>
+                            <input type="text" id="cfg-image_id" value="vllm/vllm-openai:v0.17.0" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width" id="cfg-image_url-group" style="display:none">
+                            <label>镜像下载URL</label>
+                            <input type="text" id="cfg-image_url" value="" placeholder="https://..." oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width" id="cfg-image_tar-group" style="display:none">
+                            <label>本地镜像文件路径</label>
+                            <input type="text" id="cfg-image_tar_path" value="" placeholder="/path/to/image.tar" oninput="configGenerate()">
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2 class="card-title">容器配置</h2>
+                    <div class="cmdgen-form-grid">
+                        <div class="cmdgen-form-group">
+                            <label>容器名称</label>
+                            <input type="text" id="cfg-container_name" value="lw_test" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>共享内存大小</label>
+                            <input type="text" id="cfg-shared_memory_size" value="256g" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>tmpfs 大小 (P800)</label>
+                            <input type="text" id="cfg-tmpfs_size" value="32g" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group full-width">
+                            <label>额外挂载目录</label>
+                            <input type="text" id="cfg-extra_volumes" value="" placeholder="逗号分隔，如 /data1:/data1,/data2:/data2" oninput="configGenerate()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 服务配置 + 输出与重试 -->
+            <div class="cmdgen-config-row">
+                <div class="card">
+                    <h2 class="card-title">服务配置</h2>
+                    <div class="cmdgen-form-grid">
+                        <div class="cmdgen-form-group full-width">
+                            <label>服务启动脚本</label>
+                            <input type="text" id="cfg-service_script" value="" placeholder="容器内路径，如 ./start_server.sh" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>服务端口</label>
+                            <input type="number" id="cfg-service_port" value="30000" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>启动超时(秒)</label>
+                            <input type="number" id="cfg-service_timeout" value="600" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>API类型</label>
+                            <select id="cfg-service_api_type" onchange="configGenerate()">
+                                <option value="openai" selected>OpenAI Compatible</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2 class="card-title">输出与重试</h2>
+                    <div class="cmdgen-form-grid">
+                        <div class="cmdgen-form-group full-width">
+                            <label>输出目录</label>
+                            <input type="text" id="cfg-output_dir" value="./results" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>异常自动重试</label>
+                            <select id="cfg-retry_on_anomaly" onchange="configGenerate()">
+                                <option value="true" selected>是</option>
+                                <option value="false">否</option>
+                            </select>
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>最大重试次数</label>
+                            <input type="number" id="cfg-max_retries" value="2" min="0" max="5" oninput="configGenerate()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 性能测试配置 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">性能测试配置</h2>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="cfg-perf_enabled" checked onchange="configGenerate()">
+                        <span>启用</span>
+                    </label>
+                </div>
+                <div id="perf-config-body">
+                    <div class="cmdgen-form-grid">
+                        <div class="cmdgen-form-group">
+                            <label>测试模式</label>
+                            <select id="cfg-perf_mode" onchange="configGenerate()">
+                                <option value="benchmark" selected>benchmark (多rate梯度)</option>
+                                <option value="single">single (单配置)</option>
+                            </select>
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>Temperature</label>
+                            <input type="number" id="cfg-perf_temperature" value="0.7" step="0.1" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>输入长度 (tokens)</label>
+                            <input type="number" id="cfg-perf_input_len" value="9000" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>输出长度 (tokens)</label>
+                            <input type="number" id="cfg-perf_output_len" value="100" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>每组请求数</label>
+                            <input type="number" id="cfg-perf_number" value="200" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>性能测试URL</label>
+                            <input type="text" id="cfg-perf_url" value="" placeholder="留空自动拼接" oninput="configGenerate()">
+                        </div>
+                    </div>
+                    <!-- Rate/Parallel 编辑器 -->
+                    <div class="cmdgen-section-label">Rate / Parallel 配对 (benchmark模式)</div>
+                    <div class="rate-parallel-editor" id="rate-parallel-editor">
+                        <!-- JS动态渲染 -->
+                    </div>
+                    <div style="margin-top:8px">
+                        <button class="btn btn-text" onclick="addRateParallel()">+ 添加配对</button>
+                        <button class="btn btn-text" onclick="resetRateParallel()">恢复默认</button>
+                    </div>
+                    <!-- Single模式参数 -->
+                    <div class="cmdgen-section-label">Single 模式参数</div>
+                    <div class="cmdgen-form-grid">
+                        <div class="cmdgen-form-group">
+                            <label>并发数</label>
+                            <input type="number" id="cfg-perf_single_parallel" value="10" oninput="configGenerate()">
+                        </div>
+                        <div class="cmdgen-form-group">
+                            <label>请求总数</label>
+                            <input type="number" id="cfg-perf_single_number" value="1000" oninput="configGenerate()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 精度测试配置 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">精度测试配置</h2>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="cfg-eval_enabled" checked onchange="configGenerate()">
+                        <span>启用</span>
+                    </label>
+                </div>
+                <div id="eval-config-body">
+                    <div class="cmdgen-config-row" style="margin-bottom:0">
+                        <div>
+                            <div class="cmdgen-form-grid">
+                                <div class="cmdgen-form-group">
+                                    <label>Eval URL</label>
+                                    <input type="text" id="cfg-eval_url" value="" placeholder="留空自动拼接" oninput="configGenerate()">
+                                </div>
+                                <div class="cmdgen-form-group">
+                                    <label>Batch Size</label>
+                                    <input type="number" id="cfg-eval_batch_size" value="128" oninput="configGenerate()">
+                                </div>
+                                <div class="cmdgen-form-group">
+                                    <label>Max Tokens</label>
+                                    <input type="number" id="cfg-eval_max_tokens" value="131072" oninput="configGenerate()">
+                                </div>
+                                <div class="cmdgen-form-group">
+                                    <label>Temperature</label>
+                                    <input type="number" id="cfg-eval_temperature" value="1.0" step="0.1" oninput="configGenerate()">
+                                </div>
+                                <div class="cmdgen-form-group">
+                                    <label>Top P</label>
+                                    <input type="number" id="cfg-eval_top_p" value="1.0" step="0.01" oninput="configGenerate()">
+                                </div>
+                                <div class="cmdgen-form-group">
+                                    <label>Thinking Mode</label>
+                                    <select id="cfg-eval_thinking_mode" onchange="configGenerate()">
+                                        <option value="true" selected>开启</option>
+                                        <option value="false">关闭</option>
+                                        <option value="">不传</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="cmdgen-section-label">Judge LLM (留空=被测模型自审)</div>
+                            <div class="cmdgen-form-grid">
+                                <div class="cmdgen-form-group">
+                                    <label>Judge API URL</label>
+                                    <input type="text" id="cfg-judge_api_url" value="" placeholder="留空=被测模型" oninput="configGenerate()">
+                                </div>
+                                <div class="cmdgen-form-group">
+                                    <label>Judge API Key</label>
+                                    <input type="text" id="cfg-judge_api_key" value="" placeholder="留空=EMPTY" oninput="configGenerate()">
+                                </div>
+                                <div class="cmdgen-form-group full-width">
+                                    <label>Judge Model ID</label>
+                                    <input type="text" id="cfg-judge_model_id" value="" placeholder="留空=被测模型" oninput="configGenerate()">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="cmdgen-section-label">评测数据集</div>
+                            <div class="cmdgen-btn-row">
+                                <button class="cmdgen-btn-sm" onclick="cfgEvalSelectAll()">全选</button>
+                                <button class="cmdgen-btn-sm" onclick="cfgEvalSelectNone()">清空</button>
+                                <button class="cmdgen-btn-sm" onclick="cfgEvalSelectGroup('llm')">LLM</button>
+                                <button class="cmdgen-btn-sm" onclick="cfgEvalSelectGroup('agent')">Agent</button>
+                                <button class="cmdgen-btn-sm" onclick="cfgEvalSelectGroup('vlm')">VLM</button>
+                                <button class="cmdgen-btn-sm" onclick="cfgEvalSelectGroup('judge')">Judge</button>
+                            </div>
+                            <div class="cmdgen-dataset-grid" id="cfg-eval-datasetGrid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- YAML 预览与导出 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">config.yaml 预览</h2>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-secondary btn-sm" onclick="configCopy()">复制</button>
+                        <button class="btn btn-primary btn-sm" onclick="configDownload()">下载 config.yaml</button>
+                    </div>
+                </div>
+                <div class="cmdgen-cmd-box">
+                    <pre id="config-yaml-preview"></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 命令生成面板 ==================== -->
+        <section id="tab-cmdgen" class="tab-content">
+            <!-- 子 Tab 切换 -->
+            <div class="card cmdgen-sub-tabs">
+                <button class="btn btn-ghost active" id="cmdgen-tab-bench" onclick="showCmdgenSub('bench')">Bench 性能测试</button>
+                <button class="btn btn-ghost" id="cmdgen-tab-evalscope" onclick="showCmdgenSub('evalscope')">EvalScope 评测</button>
+            </div>
+
+            <!-- Bench 性能测试命令生成 -->
+            <div id="cmdgen-bench" class="cmdgen-panel">
+                <div class="card">
+                    <h2 class="card-title">快速预设</h2>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="benchApplyPreset('3.5k')">3.5k (in=3500, out=1000)</button>
+                        <button class="preset-btn" onclick="benchApplyPreset('16k')">16k (in=16384, out=1024)</button>
+                        <button class="preset-btn" onclick="benchApplyPreset('32k')">32k (in=32768, out=1024)</button>
+                        <button class="preset-btn" onclick="benchApplyPreset('custom')">Custom Dataset</button>
+                    </div>
+                </div>
+                <div class="cmdgen-config-row">
+                    <div class="card">
+                        <h2 class="card-title">服务配置</h2>
+                        <div class="cmdgen-form-grid">
+                            <div class="cmdgen-form-group"><label>Host</label><input type="text" id="bench-host" value="127.0.0.1" oninput="benchGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Port</label><input type="number" id="bench-port" value="30000" oninput="benchGenerate()"></div>
+                            <div class="cmdgen-form-group full-width"><label>Model Path</label><input type="text" id="bench-model" value="/ssd4/models/DeepSeek-V4-Flash-INT8" oninput="benchGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Backend</label><select id="bench-backend" onchange="benchGenerate()"><option value="sglang" selected>sglang</option><option value="vllm">vllm</option><option value="openai">openai</option></select></div>
+                            <div class="cmdgen-form-group full-width"><label>日志输出文件</label><input type="text" id="bench-logFile" value="./bench_result" oninput="benchGenerate()"><span class="cmdgen-hint">实际文件名会自动追加时间戳</span></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h2 class="card-title">数据集与负载配置</h2>
+                        <div class="cmdgen-form-grid">
+                            <div class="cmdgen-form-group"><label>Dataset Type</label><select id="bench-dataset" onchange="benchOnDatasetChange(); benchGenerate()"><option value="random" selected>random</option><option value="custom">custom</option></select></div>
+                            <div class="cmdgen-form-group"><label>Dataset Path</label><input type="text" id="bench-datasetPath" value="./ShareGPT_V3_unfiltered_cleaned_split.json" oninput="benchGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>并发数</label><input type="number" id="bench-concurrency" value="32" oninput="benchGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>请求总数</label><input type="number" id="bench-numPrompts" value="800" oninput="benchGenerate()"></div>
+                        </div>
+                        <div id="bench-randomFields">
+                            <div class="cmdgen-section-label">Random 参数</div>
+                            <div class="cmdgen-form-grid">
+                                <div class="cmdgen-form-group"><label>输入长度</label><input type="number" id="bench-inputLen" value="32768" oninput="benchGenerate()"></div>
+                                <div class="cmdgen-form-group"><label>输出长度</label><input type="number" id="bench-outputLen" value="1024" oninput="benchGenerate()"></div>
+                                <div class="cmdgen-form-group"><label>Range Ratio</label><input type="number" id="bench-rangeRatio" value="1" step="0.1" oninput="benchGenerate()"><span class="cmdgen-hint">1=固定长度, &lt;1=随机范围</span></div>
+                            </div>
+                        </div>
+                        <div id="bench-customFields" style="display:none">
+                            <div class="cmdgen-section-label">Custom 参数</div>
+                            <div class="cmdgen-form-grid">
+                                <div class="cmdgen-form-group"><label>ShareGPT Output Len</label><input type="number" id="bench-sharegptOutputLen" value="1024" oninput="benchGenerate()"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2 class="card-title">生成的命令</h2>
+                    <div class="cmdgen-cmd-box"><button class="cmdgen-copy-btn" onclick="benchCopy()">复制</button><pre id="bench-cmdText"></pre></div>
+                </div>
+            </div>
+
+            <!-- EvalScope 评测命令生成 -->
+            <div id="cmdgen-evalscope" class="cmdgen-panel" style="display:none">
+                <div class="cmdgen-config-row">
+                    <div class="card">
+                        <h2 class="card-title">全局配置</h2>
+                        <div class="cmdgen-form-grid">
+                            <div class="cmdgen-form-group"><label>Model Name</label><input id="eval-modelName" value="DeepSeek-V4-Flash" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Base URL</label><input id="eval-baseUrl" value="http://127.0.0.1:30000" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>API Key</label><input id="eval-apiKey" value="EMPTY" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Eval Batch Size</label><input type="number" id="eval-ebs" value="64" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Timeout</label><input type="number" id="eval-timeout" value="10000" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Stream</label><select id="eval-stream" onchange="evalGenerate()"><option value="true" selected>是</option><option value="false">否</option></select></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h2 class="card-title">Generation Config</h2>
+                        <div class="cmdgen-form-grid">
+                            <div class="cmdgen-form-group"><label>Max Tokens</label><input type="number" id="eval-maxTokens" value="131072" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Temperature</label><input type="number" id="eval-temperature" value="1.0" step="0.1" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Top P</label><input type="number" id="eval-topP" value="1.0" step="0.01" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Top K (留空不传)</label><input id="eval-topK" value="" oninput="evalGenerate()"></div>
+                            <div class="cmdgen-form-group"><label>Thinking Mode</label><select id="eval-thinkingMode" onchange="evalGenerate()"><option value="true" selected>开启</option><option value="false">关闭</option><option value="">不传</option></select></div>
+                        </div>
+                        <div class="cmdgen-section-label">Judge LLM (留空=被测模型自审)</div>
+                        <div class="cmdgen-form-grid">
+                            <div class="cmdgen-form-group"><label>Judge API URL</label><input id="eval-judgeUrl" value="" oninput="evalGenerate()" placeholder="留空=被测模型"></div>
+                            <div class="cmdgen-form-group"><label>Judge API Key</label><input id="eval-judgeKey" value="" oninput="evalGenerate()" placeholder="留空=EMPTY"></div>
+                            <div class="cmdgen-form-group full-width"><label>Judge Model ID</label><input id="eval-judgeModel" value="" oninput="evalGenerate()" placeholder="留空=被测模型"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2 class="card-title">选择评测数据集</h2>
+                    <div class="cmdgen-btn-row">
+                        <button class="cmdgen-btn-sm" onclick="evalSelectAll()">全选</button>
+                        <button class="cmdgen-btn-sm" onclick="evalSelectNone()">清空</button>
+                        <button class="cmdgen-btn-sm" onclick="evalSelectGroup('llm')">LLM</button>
+                        <button class="cmdgen-btn-sm" onclick="evalSelectGroup('agent')">Agent</button>
+                        <button class="cmdgen-btn-sm" onclick="evalSelectGroup('vlm')">VLM</button>
+                        <button class="cmdgen-btn-sm" onclick="evalSelectGroup('judge')">Judge</button>
+                    </div>
+                    <div class="cmdgen-dataset-grid" id="eval-datasetGrid"></div>
+                </div>
+                <div class="card">
+                    <h2 class="card-title">生成的命令</h2>
+                    <div class="cmdgen-cmd-box"><button class="cmdgen-copy-btn" onclick="evalCopy()">复制</button><pre id="eval-cmdText"></pre></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 脚本预览面板 ==================== -->
+        <section id="tab-scripts" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">工作流执行预览</h2>
+                    <button class="btn btn-secondary btn-sm" onclick="scriptsGenerate()">刷新预览</button>
+                </div>
+                <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:16px">
+                    根据当前「配置管理」Tab 中的参数，预览 workflow.sh 各阶段将执行的实际命令。
+                </p>
+                <div id="scripts-preview">
+                    <!-- JS动态渲染 -->
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">一键复制全部脚本</h2>
+                    <button class="btn btn-primary btn-sm" onclick="scriptsCopyAll()">复制全部</button>
+                </div>
+                <div class="cmdgen-cmd-box">
+                    <pre id="scripts-all-text"></pre>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <span>QATools 配置管理平台 · 自动化测试工作流</span>
+    </footer>
+
+    <script src="./app.js"></script>
+</body>
+</html>

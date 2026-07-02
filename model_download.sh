@@ -1,0 +1,1 @@
+modelscope download --model MiniMax/MiniMax-M3  --local_dir ./

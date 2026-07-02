@@ -1,0 +1,70 @@
+# ============================================================
+# 全局配置文件 - 模型推理服务测试工作流
+# ============================================================
+# 使用方式: 修改本文件中的参数，然后执行 bash workflow.sh
+
+# --- 硬件与环境 ---
+hardware_type: auto            # auto(自动检测) / p800 / h20
+workspace: /ssd3/liuwei
+xpu_num: 8                     # XPU/GPU 设备数量(auto时自动检测)
+
+# --- 模型 ---
+model_name: "Qwen3.5-27B"
+model_path: "/ssd3/models/Qwen3.5-27B"
+tokenizer_path: "/ssd3/models/Qwen3.5-27B"
+model_download_source: ""      # 留空=已有模型, "modelscope"=从modelscope下载
+model_download_id: ""          # modelscope model id, 如 "MiniMax/MiniMax-M3"
+
+# --- 镜像 ---
+image_source: "registry"       # registry / tar / tar_gz / url
+image_id: "vllm/vllm-openai:v0.17.0"
+image_url: ""                  # image_source=url 时填写下载链接
+image_tar_path: ""             # image_source=tar/tar_gz 时填写本地路径
+
+# --- 容器 ---
+container_name: "lw_test"
+shared_memory_size: "256g"     # H20 的 --shm-size
+tmpfs_size: "32g"              # P800 的 tmpfs size
+extra_volumes: ""              # 额外挂载, 逗号分隔, 如 "/data1:/data1,/data2:/data2"
+
+# --- 服务 ---
+service_script: ""             # 服务启动脚本路径（容器内路径），留空则需手动启动
+service_port: 30000            # 服务端口
+service_timeout: 600           # 服务启动超时(秒)
+service_api_type: "openai"     # openai / 其他
+
+# --- 性能测试 ---
+perf_enabled: true
+perf_mode: "benchmark"         # benchmark(多rate梯度) / single(单配置)
+perf_url: ""                   # 留空则自动拼接 http://127.0.0.1:{service_port}/v1/completions
+perf_input_len: 9000
+perf_output_len: 100
+perf_number: 200               # 每个rate配置的请求数
+perf_temperature: 0.7
+# benchmark模式的 rate:parallel 配对 (按rate从小到大)
+perf_rates: "0.3,0.5,0.6,0.7,0.8,1.0,1.5,2.0,3.0,4.0,5.0,10.0,20.0"
+perf_parallels: "3,5,6,7,8,10,15,20,30,40,50,100,200"
+# single模式参数
+perf_single_parallel: 10
+perf_single_number: 1000
+
+# --- 精度测试 ---
+eval_enabled: true
+eval_url: ""                   # 留空则自动拼接 http://127.0.0.1:{service_port}
+eval_datasets: "aime25,gpqa_diamond,gsm8k,humaneval"
+eval_max_tokens: 131072
+eval_temperature: 1.0
+eval_top_p: 1.0
+eval_thinking_mode: "true"     # "true" / "false" / ""(不传)
+eval_batch_size: 128
+# Judge LLM（留空则用被测模型自判）
+judge_api_url: ""
+judge_api_key: ""
+judge_model_id: ""
+
+# --- 重试 ---
+retry_on_anomaly: true
+max_retries: 2
+
+# --- 输出 ---
+output_dir: "./results"
