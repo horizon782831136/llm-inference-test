@@ -3,6 +3,7 @@
 # Phase 5: 性能测试
 # 在测试容器内使用 evalscope perf 进行性能基准测试
 # 支持 benchmark(多rate梯度) 和 single(单配置) 两种模式
+# 测试日志和结果保存在服务脚本目录下的 test/ 文件夹中
 # ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
@@ -11,6 +12,7 @@ log_step "Phase 5: 性能测试"
 
 # --- 参数 ---
 TEST_CONTAINER="${CFG_TEST_CONTAINER_NAME:-lw_qa_infer}"
+SERVICE_SCRIPT="${CFG_SERVICE_SCRIPT:-}"
 MODEL_NAME="${CFG_MODEL_NAME:-}"
 TOKENIZER_PATH="${CFG_TOKENIZER_PATH:-${CFG_MODEL_PATH:-}}"
 SERVICE_PORT="${CFG_SERVICE_PORT:-30000}"
@@ -24,7 +26,6 @@ PERF_RATES="${CFG_PERF_RATES:-0.3,0.5,0.6,0.7,0.8,1.0,1.5,2.0,3.0,4.0,5.0,10.0,2
 PERF_PARALLELS="${CFG_PERF_PARALLELS:-3,5,6,7,8,10,15,20,30,40,50,100,200}"
 SINGLE_PARALLEL="${CFG_PERF_SINGLE_PARALLEL:-10}"
 SINGLE_NUMBER="${CFG_PERF_SINGLE_NUMBER:-1000}"
-OUTPUT_DIR="${CFG_OUTPUT_DIR:-./results}"
 MAX_RETRIES="${CFG_MAX_RETRIES:-2}"
 RETRY_ON_ANOMALY="${CFG_RETRY_ON_ANOMALY:-true}"
 
@@ -33,11 +34,20 @@ if [[ -z "$PERF_URL" ]]; then
     PERF_URL="http://127.0.0.1:${SERVICE_PORT}/v1/completions"
 fi
 
-PERF_OUTPUT_DIR="${OUTPUT_DIR}/perf"
-mkdir -p "$PERF_OUTPUT_DIR"
+# --- 测试输出目录：服务脚本同目录下的 test/ ---
+if [[ -n "$SERVICE_SCRIPT" ]]; then
+    SERVICE_SCRIPT_DIR=$(dirname "$SERVICE_SCRIPT")
+    TEST_OUTPUT_DIR="${SERVICE_SCRIPT_DIR}/test"
+else
+    TEST_OUTPUT_DIR="./test"
+fi
+mkdir -p "$TEST_OUTPUT_DIR"
 
 TIMESTAMP=$(timestamp)
-LOG_FILE="${PERF_OUTPUT_DIR}/perf_${PERF_MODE}_${TIMESTAMP}.log"
+LOG_FILE="${TEST_OUTPUT_DIR}/perf_${PERF_MODE}_${TIMESTAMP}.log"
+
+log_info "测试输出目录: ${TEST_OUTPUT_DIR}"
+log_info "性能日志文件: ${LOG_FILE}"
 
 # --- 检查 evalscope ---
 if ! command -v evalscope &>/dev/null; then
@@ -152,5 +162,6 @@ esac
 log_info "性能测试完成，日志: ${LOG_FILE}"
 log_info "Phase 5 完成 ✓"
 
-# 输出日志路径供后续使用
+# 导出测试目录路径供后续使用
+export TEST_OUTPUT_DIR="${TEST_OUTPUT_DIR}"
 echo "$LOG_FILE"

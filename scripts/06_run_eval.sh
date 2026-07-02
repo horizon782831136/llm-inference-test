@@ -2,6 +2,7 @@
 # ============================================================
 # Phase 6: 精度测试
 # 在测试容器内使用 evalscope eval 进行精度评测
+# 测试日志和结果保存在服务脚本目录下的 test/ 文件夹中
 # ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
@@ -10,6 +11,7 @@ log_step "Phase 6: 精度测试"
 
 # --- 参数 ---
 TEST_CONTAINER="${CFG_TEST_CONTAINER_NAME:-lw_qa_infer}"
+SERVICE_SCRIPT="${CFG_SERVICE_SCRIPT:-}"
 MODEL_NAME="${CFG_MODEL_NAME:-}"
 SERVICE_PORT="${CFG_SERVICE_PORT:-30000}"
 EVAL_URL="${CFG_EVAL_URL:-}"
@@ -22,7 +24,6 @@ EVAL_BATCH_SIZE="${CFG_EVAL_BATCH_SIZE:-128}"
 JUDGE_API_URL="${CFG_JUDGE_API_URL:-}"
 JUDGE_API_KEY="${CFG_JUDGE_API_KEY:-}"
 JUDGE_MODEL_ID="${CFG_JUDGE_MODEL_ID:-}"
-OUTPUT_DIR="${CFG_OUTPUT_DIR:-./results}"
 MAX_RETRIES="${CFG_MAX_RETRIES:-2}"
 RETRY_ON_ANOMALY="${CFG_RETRY_ON_ANOMALY:-true}"
 
@@ -31,8 +32,19 @@ if [[ -z "$EVAL_URL" ]]; then
     EVAL_URL="http://127.0.0.1:${SERVICE_PORT}"
 fi
 
-EVAL_OUTPUT_DIR="${OUTPUT_DIR}/eval"
-mkdir -p "$EVAL_OUTPUT_DIR" logs
+# --- 测试输出目录：服务脚本同目录下的 test/ ---
+if [[ -n "$SERVICE_SCRIPT" ]]; then
+    SERVICE_SCRIPT_DIR=$(dirname "$SERVICE_SCRIPT")
+    TEST_OUTPUT_DIR="${SERVICE_SCRIPT_DIR}/test"
+else
+    TEST_OUTPUT_DIR="./test"
+fi
+
+EVAL_OUTPUT_DIR="${TEST_OUTPUT_DIR}/eval"
+EVAL_LOG_DIR="${TEST_OUTPUT_DIR}/logs"
+mkdir -p "$EVAL_OUTPUT_DIR" "$EVAL_LOG_DIR"
+
+log_info "测试输出目录: ${TEST_OUTPUT_DIR}"
 
 # --- 需要 LLM Judge 的数据集 ---
 JUDGE_DATASETS=(zerobench hle aa_lcr chinese_simpleqa simple_qa)
@@ -149,7 +161,7 @@ run_eval_dataset() {
         --work-dir "$work_dir" \
         --ignore-errors \
         "${judge_args[@]}" \
-        2>&1 | tee "logs/${dataset_name}_${ts}.log"
+        2>&1 | tee "${EVAL_LOG_DIR}/${dataset_name}_${ts}.log"
 
     return ${PIPESTATUS[0]}
 }
@@ -188,7 +200,7 @@ for ds in "${datasets[@]}"; do
         run_eval_dataset "$ds"
         exit_code=$?
 
-        latest_log=$(ls -t logs/${ds}_*.log 2>/dev/null | head -1)
+        latest_log=$(ls -t "${EVAL_LOG_DIR}/${ds}_"*.log 2>/dev/null | head -1)
         if [[ $exit_code -eq 0 ]] && check_eval_anomaly "$ds" "$latest_log"; then
             success=true
             break

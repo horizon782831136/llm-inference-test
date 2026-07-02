@@ -9,17 +9,28 @@ source "${SCRIPT_DIR}/utils.sh"
 log_step "Phase 7: 结果导出与报告生成"
 
 # --- 参数 ---
-OUTPUT_DIR="${CFG_OUTPUT_DIR:-./results}"
+SERVICE_SCRIPT="${CFG_SERVICE_SCRIPT:-}"
 MODEL_NAME="${CFG_MODEL_NAME:-}"
 PERF_ENABLED="${CFG_PERF_ENABLED:-true}"
 EVAL_ENABLED="${CFG_EVAL_ENABLED:-true}"
 
-PERF_DIR="${OUTPUT_DIR}/perf"
-EVAL_DIR="${OUTPUT_DIR}/eval"
-REPORT_DIR="${OUTPUT_DIR}/reports"
+# --- 测试输出目录：服务脚本同目录下的 test/ ---
+if [[ -n "$SERVICE_SCRIPT" ]]; then
+    SERVICE_SCRIPT_DIR=$(dirname "$SERVICE_SCRIPT")
+    TEST_OUTPUT_DIR="${SERVICE_SCRIPT_DIR}/test"
+else
+    TEST_OUTPUT_DIR="./test"
+fi
+
+PERF_DIR="${TEST_OUTPUT_DIR}"
+EVAL_DIR="${TEST_OUTPUT_DIR}/eval"
+EVAL_LOG_DIR="${TEST_OUTPUT_DIR}/logs"
+REPORT_DIR="${TEST_OUTPUT_DIR}/reports"
 mkdir -p "$REPORT_DIR"
 
 TIMESTAMP=$(timestamp)
+
+log_info "测试输出目录: ${TEST_OUTPUT_DIR}"
 
 # ===== 性能结果导出到 Excel =====
 export_perf_to_excel() {
@@ -209,7 +220,7 @@ except Exception as e:
 
         # 也从日志中提取最终得分
         local log_file
-        log_file=$(ls -t logs/${ds_name}_*.log 2>/dev/null | head -1)
+        log_file=$(ls -t "${EVAL_LOG_DIR}/${ds_name}_"*.log 2>/dev/null | head -1)
         if [[ -n "$log_file" ]]; then
             grep -i "score\|accuracy\|pass_rate\|final" "$log_file" | tail -5 >> "$eval_summary" 2>/dev/null
         fi
@@ -223,7 +234,7 @@ generate_report() {
     log_info "生成测试报告..."
 
     local report_file="${REPORT_DIR}/test_report_${TIMESTAMP}.md"
-    local env_report="${OUTPUT_DIR}/env_report.json"
+    local env_report="${TEST_OUTPUT_DIR}/env_report.json"
 
     # 读取环境信息
     local hw_type="未知"
@@ -327,4 +338,4 @@ fi
 generate_report
 
 log_info "Phase 7 完成 ✓"
-log_info "所有输出保存在: ${OUTPUT_DIR}/"
+log_info "所有测试输出保存在: ${TEST_OUTPUT_DIR}/"
