@@ -42,6 +42,73 @@ if [[ "$HW_TYPE" == "auto" ]]; then
     log_info "自动检测到硬件: ${HW_TYPE}"
 fi
 
+# ===== GPU/XPU 占用检查 =====
+check_device_usage() {
+    log_info "检查设备占用情况..."
+    local has_process=false
+
+    case "$HW_TYPE" in
+        p800)
+            # 检查 xpu-smi 输出中是否有运行中的进程
+            local xpu_procs
+            xpu_procs=$(xpu-smi 2>/dev/null | grep -A 100 "Processes:" | grep -v "No running processes" | grep -E "^\|[[:space:]]+[0-9]" || true)
+            if [[ -n "$xpu_procs" ]]; then
+                has_process=true
+                log_warn "检测到 XPU 上有运行中的进程:"
+                echo "$xpu_procs"
+            fi
+            ;;
+        h20)
+            # 检查 nvidia-smi 输出中是否有运行中的进程
+            local gpu_procs
+            gpu_procs=$(nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>/dev/null || true)
+            if [[ -n "$gpu_procs" ]]; then
+                has_process=true
+                log_warn "检测到 GPU 上有运行中的进程:"
+                echo "$gpu_procs"
+            fi
+            ;;
+    esac
+
+    if [[ "$has_process" == "true" ]]; then
+        log_warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        log_warn "设备上存在占用进程，可能影响服务启动！"
+        log_warn "是否杀掉相关进程？(y/N)"
+
+        # 非交互模式下自动跳过
+        if [[ -t 0 ]]; then
+            read -r -t 30 answer
+            if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+                kill_device_processes
+                log_info "进程已清理，等待资源释放..."
+                sleep 3
+            else
+                log_warn "跳过进程清理，继续创建容器（可能会失败）"
+            fi
+        else
+            log_warn "非交互模式，跳过进程清理"
+        fi
+    else
+        log_info "设备无占用进程 ✓"
+    fi
+}
+
+# 杀掉设备相关进程
+kill_device_processes() {
+    log_info "清理设备相关进程..."
+    # 参考 kill.sh
+    pkill -9 "sglang::" 2>/dev/null || true
+    pkill -9 circusd 2>/dev/null || true
+    pkill -9 python3.10 2>/dev/null || true
+    pkill -9 python 2>/dev/null || true
+    pkill -9 http 2>/dev/null || true
+    pkill -9 VLLM 2>/dev/null || true
+    log_info "进程清理完成"
+}
+
+# 执行设备占用检查
+check_device_usage
+
 # --- 构建额外挂载参数 ---
 build_extra_volumes() {
     local extra="$1"
