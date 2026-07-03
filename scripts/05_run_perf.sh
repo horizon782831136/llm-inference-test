@@ -56,7 +56,7 @@ if ! container_running "$TEST_CONTAINER"; then
 fi
 
 # --- 检查容器内 evalscope ---
-if ! docker exec "$TEST_CONTAINER" bash -c "command -v evalscope" &>/dev/null; then
+if ! docker exec "$TEST_CONTAINER" bash -c "source /root/miniconda/etc/profile.d/conda.sh && conda activate evalscope_env && command -v evalscope" &>/dev/null; then
     log_error "测试容器内 evalscope 未安装! 请先运行 Phase 2。"
     exit 1
 fi
@@ -69,7 +69,10 @@ run_perf_single() {
 
     echo "Running with rate=${rate}, parallel=${parallel}" | tee -a "$LOG_FILE"
 
-    docker exec "$TEST_CONTAINER" bash -c "cd /dir && evalscope perf \
+    docker exec "$TEST_CONTAINER" bash -c "\
+        source /root/miniconda/etc/profile.d/conda.sh && \
+        conda activate evalscope_env && \
+        cd /dir && evalscope perf \
         --url '$PERF_URL' \
         --model '$MODEL_NAME' \
         --dataset random \
