@@ -1,76 +1,72 @@
 # ============================================================
 # 全局配置文件 - 模型推理服务测试工作流
+# 生成时间: 2026/7/2 20:21:56
 # ============================================================
-# 使用方式: 修改本文件中的参数，然后执行 bash workflow.sh
 
 # --- 硬件与环境 ---
-hardware_type: auto            # auto(自动检测) / p800 / h20
+hardware_type: p800
 workspace: /ssd3/liuwei
-xpu_num: 8                     # XPU/GPU 设备数量(auto时自动检测)
+xpu_num: 8
 
 # --- 模型 ---
 model_name: "Qwen3.5-27B"
 model_path: "/ssd3/models/Qwen3.5-27B"
 tokenizer_path: "/ssd3/models/Qwen3.5-27B"
-model_download_source: ""      # 留空=已有模型, "modelscope"=从modelscope下载
-model_download_id: ""          # modelscope model id, 如 "MiniMax/MiniMax-M3"
+model_download_source: ""
+model_download_id: ""
 
 # --- 服务镜像 ---
-service_image_source: "registry"   # registry / tar / tar_gz / url
-service_image_id: "iregistry.baidu-int.com/xpu/sglang-p800-pd-disagg-056:20260512_386"
-service_image_url: ""              # image_source=url 时填写下载链接
-service_image_tar_path: ""         # image_source=tar/tar_gz 时填写本地路径
+service_image_source: "registry"
+service_image_id: "iregistry.baidu-int.com/xpu/infer_qa:v4.0"
+service_image_url: ""
+service_image_tar_path: ""
 
 # --- 服务容器 ---
-service_container_name: "lw_sglang"
-service_shared_memory_size: "256g"   # H20 的 --shm-size
-service_tmpfs_size: "32g"            # P800 的 tmpfs size
-service_extra_volumes: ""            # 额外挂载, 逗号分隔
+service_container_name: "lw_vllm"
+service_shared_memory_size: "256g"
+service_tmpfs_size: "32g"
+service_extra_volumes: ""
 
 # --- 测试镜像 ---
-test_image_source: "registry"      # registry / tar / tar_gz / url
+test_image_source: "registry"
 test_image_id: "iregistry.baidu-int.com/xpu/infer_qa:v4.0"
 test_image_url: ""
 test_image_tar_path: ""
-# 测试镜像下载地址(备注): https://klx-sdk-release-public.su.bcebos.com/DS_PD/docker/infer_qa_v4.0.tar.gz
 
 # --- 测试容器 ---
-test_container_name: "lw_qa_infer"
+test_container_name: "lw_qa_test"
 test_shared_memory_size: "256g"
 test_tmpfs_size: "32g"
 test_extra_volumes: ""
 
 # --- 服务 ---
-service_script: ""             # 服务启动脚本路径（容器内路径），留空则需手动启动
-service_port: 30000            # 服务端口
-service_timeout: 600           # 服务启动超时(秒)
-service_api_type: "openai"     # openai / 其他
+service_script: "/dir/qwen3.5/qwen3.5-27b/server_v3.sh"
+service_port: 30000
+service_timeout: 600
+service_api_type: "openai"
 
 # --- 性能测试 ---
 perf_enabled: true
-perf_mode: "benchmark"         # benchmark(多rate梯度) / single(单配置)
-perf_url: ""                   # 留空则自动拼接 http://127.0.0.1:{service_port}/v1/completions
-perf_input_len: 9000
-perf_output_len: 100
-perf_number: 200               # 每个rate配置的请求数
+perf_mode: "benchmark"
+perf_url: ""
+perf_input_len: 2600
+perf_output_len: 30
+perf_number: 200
 perf_temperature: 0.7
-# benchmark模式的 rate:parallel 配对 (按rate从小到大)
-perf_rates: "0.3,0.5,0.6,0.7,0.8,1.0,1.5,2.0,3.0,4.0,5.0,10.0,20.0"
+perf_rates: "0.3,0.5,0.6,0.7,0.8,1,1.5,2,3,4,5,10,20"
 perf_parallels: "3,5,6,7,8,10,15,20,30,40,50,100,200"
-# single模式参数
 perf_single_parallel: 10
 perf_single_number: 1000
 
 # --- 精度测试 ---
 eval_enabled: true
-eval_url: ""                   # 留空则自动拼接 http://127.0.0.1:{service_port}
+eval_url: ""
 eval_datasets: "aime25,gpqa_diamond,gsm8k,humaneval"
 eval_max_tokens: 131072
 eval_temperature: 1.0
 eval_top_p: 1.0
-eval_thinking_mode: "true"     # "true" / "false" / ""(不传)
+eval_thinking_mode: "true"
 eval_batch_size: 128
-# Judge LLM（留空则用被测模型自判）
 judge_api_url: ""
 judge_api_key: ""
 judge_model_id: ""
