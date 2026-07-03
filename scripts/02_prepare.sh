@@ -183,7 +183,7 @@ ensure_evalscope() {
     fi
 
     log_info "在测试容器内安装 evalscope..."
-    docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip install evalscope -q" 2>&1
+    docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip install evalscope 'evalscope[perf]' -i https://repo.huaweicloud.com/repository/pypi/simple" 2>&1
 
     if docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope" &>/dev/null; then
         log_info "evalscope 安装完成 ✓"
