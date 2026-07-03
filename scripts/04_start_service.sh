@@ -36,8 +36,11 @@ if [[ -n "$SERVICE_SCRIPT" ]]; then
 
     # 在容器内后台执行服务脚本，日志输出到脚本同目录
     # SERVICE_LOG 已经是容器内绝对路径（如 /dir/qwen3.5/.../service_xxx.log）
-    # 使用 login shell (-l) 确保 conda 环境被正确激活
-    docker exec -d "$CONTAINER_NAME" bash -lc "bash ${SERVICE_SCRIPT} > ${SERVICE_LOG} 2>&1"
+    # 显式激活 conda 环境后执行服务脚本，确保 vllm 等命令可用
+    docker exec -d "$CONTAINER_NAME" bash -c "\
+        source /root/miniconda/etc/profile.d/conda.sh; \
+        conda activate python310_torch29_cuda; \
+        bash ${SERVICE_SCRIPT} > ${SERVICE_LOG} 2>&1"
     log_info "服务启动命令已发送"
 else
     SERVICE_LOG="service_${TIMESTAMP}.log"
