@@ -25,6 +25,23 @@ if ! container_running "$CONTAINER_NAME"; then
     exit 1
 fi
 
+# --- 检查端口是否已被占用（旧服务） ---
+if curl -s --connect-timeout 3 "http://127.0.0.1:${SERVICE_PORT}/v1/models" > /dev/null 2>&1; then
+    log_warn "端口 ${SERVICE_PORT} 已被占用，停止旧服务..."
+    docker exec "$CONTAINER_NAME" bash -c "pkill -9 -f 'port.*${SERVICE_PORT}' 2>/dev/null; pkill -9 -f 'vllm' 2>/dev/null; pkill -9 -f 'sglang' 2>/dev/null" || true
+    sleep 5
+    if curl -s --connect-timeout 3 "http://127.0.0.1:${SERVICE_PORT}/v1/models" > /dev/null 2>&1; then
+        log_warn "端口仍被占用，尝试强制清理容器内所有推理进程..."
+        docker exec "$CONTAINER_NAME" bash -c "pkill -9 python3.10 2>/dev/null; pkill -9 python 2>/dev/null" || true
+        sleep 5
+    fi
+    if curl -s --connect-timeout 3 "http://127.0.0.1:${SERVICE_PORT}/v1/models" > /dev/null 2>&1; then
+        log_error "无法停止端口 ${SERVICE_PORT} 上的旧服务，请手动处理"
+        exit 1
+    fi
+    log_info "旧服务已停止 ✓"
+fi
+
 # --- 启动服务 ---
 if [[ -n "$SERVICE_SCRIPT" ]]; then
     # 服务日志放在服务脚本同目录下，以时间为后缀
@@ -78,10 +95,14 @@ VERIFY_RESPONSE=$(curl -s -X POST "http://127.0.0.1:${SERVICE_PORT}/v1/chat/comp
 if echo "$VERIFY_RESPONSE" | python3 -c "
 import sys, json
 resp = json.load(sys.stdin)
-content = resp.get('choices', [{}])[0].get('message', {}).get('content', '')
-if len(content) > 10:
-    print(f'模型回答正常 (长度: {len(content)} 字符)')
-    print(f'回答预览: {content[:100]}...')
+msg = resp.get('choices', [{}])[0].get('message', {})
+content = msg.get('content', '') or ''
+reasoning = msg.get('reasoning', '') or msg.get('reasoning_content', '') or ''
+total = content + reasoning
+if len(total) > 10:
+    print(f'模型回答正常 (content: {len(content)} 字符, reasoning: {len(reasoning)} 字符)')
+    preview = content[:100] if content else reasoning[:100]
+    print(f'回答预览: {preview}...')
     sys.exit(0)
 else:
     print(f'回答异常: {resp}')
