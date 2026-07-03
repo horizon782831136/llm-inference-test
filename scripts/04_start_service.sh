@@ -16,8 +16,57 @@ SERVICE_PORT="${CFG_SERVICE_PORT:-30000}"
 SERVICE_TIMEOUT="${CFG_SERVICE_TIMEOUT:-600}"
 MODEL_NAME="${CFG_MODEL_NAME:-}"
 MODEL_PATH="${CFG_MODEL_PATH:-}"
+REUSE_SERVICE="${CFG_REUSE_SERVICE:-false}"
 
 TIMESTAMP=$(timestamp)
+
+# --- 沿用旧服务模式 ---
+if [[ "$REUSE_SERVICE" == "true" ]]; then
+    log_info "reuse_service=true，检查现有服务是否可用..."
+    if curl -s --connect-timeout 3 "http://127.0.0.1:${SERVICE_PORT}/v1/models" > /dev/null 2>&1; then
+        log_info "端口 ${SERVICE_PORT} 上已有服务运行，直接沿用"
+        # 验证模型回答
+        log_info "验证模型回答..."
+        VERIFY_RESPONSE=$(curl -s -X POST "http://127.0.0.1:${SERVICE_PORT}/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"model\": \"${MODEL_NAME}\",
+                \"messages\": [{\"role\": \"user\", \"content\": \"介绍一下你自己\"}],
+                \"temperature\": 0.7,
+                \"max_tokens\": 256,
+                \"stream\": false
+            }" 2>/dev/null)
+
+        if echo "$VERIFY_RESPONSE" | python3 -c "
+import sys, json
+resp = json.load(sys.stdin)
+msg = resp.get('choices', [{}])[0].get('message', {})
+content = msg.get('content', '') or ''
+reasoning = msg.get('reasoning', '') or msg.get('reasoning_content', '') or ''
+total = content + reasoning
+if len(total) > 10:
+    print(f'模型回答正常 (content: {len(content)} 字符, reasoning: {len(reasoning)} 字符)')
+    preview = content[:100] if content else reasoning[:100]
+    print(f'回答预览: {preview}...')
+    sys.exit(0)
+else:
+    print(f'回答异常: {resp}')
+    sys.exit(1)
+" 2>/dev/null; then
+            log_info "沿用现有服务验证通过 ✓"
+            log_info "Phase 4 完成 ✓"
+            exit 0
+        else
+            log_error "现有服务回答验证失败!"
+            log_error "响应内容: ${VERIFY_RESPONSE}"
+            exit 1
+        fi
+    else
+        log_error "reuse_service=true 但端口 ${SERVICE_PORT} 上无服务运行!"
+        log_error "请先手动启动服务，或设置 reuse_service: false"
+        exit 1
+    fi
+fi
 
 # --- 检查容器运行状态 ---
 if ! container_running "$CONTAINER_NAME"; then

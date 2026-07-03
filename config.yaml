@@ -44,6 +44,7 @@ service_script: "/dir/qwen3.5/qwen3.5-27b/server_v3.sh"
 service_port: 30000
 service_timeout: 600
 service_api_type: "openai"
+reuse_service: false           # true=沿用当前已运行的服务,跳过启动直接测试; false=正常启动新服务
 
 # --- 性能测试 ---
 perf_enabled: true
