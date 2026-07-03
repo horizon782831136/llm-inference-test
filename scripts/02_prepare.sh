@@ -160,21 +160,33 @@ prepare_single_image() {
     log_info "${role}镜像准备完成 ✓"
 }
 
-# ===== evalscope 安装 =====
+# ===== evalscope 安装（在测试容器内） =====
 ensure_evalscope() {
-    log_info "--- 检查 evalscope ---"
-    if command -v evalscope &>/dev/null; then
-        local ver
-        ver=$(evalscope --version 2>/dev/null || pip show evalscope 2>/dev/null | grep Version | awk '{print $2}')
-        log_info "evalscope 已安装: ${ver}"
+    local test_container="${CFG_TEST_CONTAINER_NAME:-lw_qa_infer}"
+
+    log_info "--- 检查测试容器内 evalscope ---"
+
+    # 检查测试容器是否运行中
+    if ! container_running "$test_container"; then
+        log_warn "测试容器 ${test_container} 未运行，跳过 evalscope 检查（将在 Phase 3 后自动可用）"
         return 0
     fi
-    log_info "安装 evalscope..."
-    pip install evalscope -q
-    if command -v evalscope &>/dev/null; then
+
+    # 在测试容器内检查 evalscope
+    if docker exec "$test_container" bash -c "command -v evalscope" &>/dev/null; then
+        local ver
+        ver=$(docker exec "$test_container" bash -c "evalscope --version 2>/dev/null || pip show evalscope 2>/dev/null | grep Version | awk '{print \$2}'" 2>/dev/null)
+        log_info "测试容器内 evalscope 已安装: ${ver}"
+        return 0
+    fi
+
+    log_info "在测试容器内安装 evalscope..."
+    docker exec "$test_container" bash -c "pip install evalscope -q" 2>&1
+
+    if docker exec "$test_container" bash -c "command -v evalscope" &>/dev/null; then
         log_info "evalscope 安装完成 ✓"
     else
-        log_warn "evalscope 安装可能未成功，请手动检查"
+        log_warn "evalscope 安装可能未成功，请手动进入测试容器检查: docker exec -it ${test_container} bash"
     fi
 }
 
