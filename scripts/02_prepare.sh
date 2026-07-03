@@ -172,8 +172,8 @@ ensure_evalscope() {
         return 0
     fi
 
-    # 在测试容器内激活 conda 环境后检查 evalscope
-    local conda_prefix="source /root/miniconda/etc/profile.d/conda.sh && conda activate evalscope_env"
+    # 使用 conda shell.bash hook 方式激活环境（避免 source 权限问题）
+    local conda_prefix='eval "$(/root/miniconda/bin/conda shell.bash hook)" && conda activate evalscope_env'
 
     if docker exec "$test_container" bash -c "${conda_prefix} && pip show evalscope" &>/dev/null; then
         local ver

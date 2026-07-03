@@ -56,7 +56,7 @@ if ! container_running "$TEST_CONTAINER"; then
 fi
 
 # --- 检查容器内 evalscope ---
-if ! docker exec "$TEST_CONTAINER" bash -c "source /root/miniconda/etc/profile.d/conda.sh && conda activate evalscope_env && command -v evalscope" &>/dev/null; then
+if ! docker exec "$TEST_CONTAINER" bash -c 'eval "$(/root/miniconda/bin/conda shell.bash hook)" && conda activate evalscope_env && command -v evalscope' &>/dev/null; then
     log_error "测试容器内 evalscope 未安装! 请先运行 Phase 2。"
     exit 1
 fi
@@ -69,25 +69,25 @@ run_perf_single() {
 
     echo "Running with rate=${rate}, parallel=${parallel}" | tee -a "$LOG_FILE"
 
-    docker exec "$TEST_CONTAINER" bash -c "\
-        source /root/miniconda/etc/profile.d/conda.sh && \
+    docker exec "$TEST_CONTAINER" bash -c '\
+        eval "$(/root/miniconda/bin/conda shell.bash hook)" && \
         conda activate evalscope_env && \
         cd /dir && evalscope perf \
-        --url '$PERF_URL' \
-        --model '$MODEL_NAME' \
+        --url "'"$PERF_URL"'" \
+        --model "'"$MODEL_NAME"'" \
         --dataset random \
-        --api-key '' \
-        --parallel $parallel \
-        --rate $rate \
-        --number $num \
-        --temperature $PERF_TEMP \
-        --max-prompt-length $INPUT_LEN \
-        --min-prompt-length $INPUT_LEN \
-        --max-tokens $OUTPUT_LEN \
-        --min-tokens $OUTPUT_LEN \
+        --api-key "" \
+        --parallel '"$parallel"' \
+        --rate '"$rate"' \
+        --number '"$num"' \
+        --temperature '"$PERF_TEMP"' \
+        --max-prompt-length '"$INPUT_LEN"' \
+        --min-prompt-length '"$INPUT_LEN"' \
+        --max-tokens '"$OUTPUT_LEN"' \
+        --min-tokens '"$OUTPUT_LEN"' \
         --prefix-length 0 \
-        --tokenizer-path '$TOKENIZER_PATH' \
-        --name '$MODEL_NAME'" 2>&1 | tee -a "$LOG_FILE"
+        --tokenizer-path "'"$TOKENIZER_PATH"'" \
+        --name "'"$MODEL_NAME"'"' 2>&1 | tee -a "$LOG_FILE"
 
     local exit_code=${PIPESTATUS[0]}
     echo "Finished rate=${rate}, parallel=${parallel}" | tee -a "$LOG_FILE"

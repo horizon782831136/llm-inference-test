@@ -144,23 +144,23 @@ run_eval_dataset() {
         fi
     done
 
-    docker exec "$TEST_CONTAINER" bash -c "\
-        source /root/miniconda/etc/profile.d/conda.sh && \
+    docker exec "$TEST_CONTAINER" bash -c '\
+        eval "$(/root/miniconda/bin/conda shell.bash hook)" && \
         conda activate evalscope_env && \
         cd /dir && evalscope eval \
-        --model '$MODEL_NAME' \
-        --api-url '${EVAL_URL}/v1' \
-        --api-key 'EMPTY' \
+        --model "'"$MODEL_NAME"'" \
+        --api-url "'"${EVAL_URL}/v1"'" \
+        --api-key "EMPTY" \
         --eval-type openai_api \
-        --datasets '$dataset_name' \
-        --generation-config '$gen_json' \
+        --datasets "'"$dataset_name"'" \
+        --generation-config '"'"'"$gen_json"'"'"' \
         --timeout 10000 \
         --stream \
-        --eval-batch-size $EVAL_BATCH_SIZE \
-        --dataset-args '{\"${dataset_name}\":${inner}}' \
-        --work-dir '/dir/${work_dir}' \
+        --eval-batch-size '"$EVAL_BATCH_SIZE"' \
+        --dataset-args '"'"'{"'"$dataset_name"'":'"$inner"'}'"'"' \
+        --work-dir "/dir/'"$work_dir"'" \
         --ignore-errors \
-        ${judge_args}" 2>&1 | tee "${EVAL_LOG_DIR}/${dataset_name}_${ts}.log"
+        '"$judge_args"'' 2>&1 | tee "${EVAL_LOG_DIR}/${dataset_name}_${ts}.log"
 
     return ${PIPESTATUS[0]}
 }
