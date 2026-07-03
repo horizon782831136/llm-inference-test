@@ -168,22 +168,22 @@ ensure_evalscope() {
 
     # 检查测试容器是否运行中
     if ! container_running "$test_container"; then
-        log_warn "测试容器 ${test_container} 未运行，跳过 evalscope 检查（将在 Phase 3 后自动可用）"
+        log_warn "测试容器 ${test_container} 未运行，将在 Phase 5 前自动检查"
         return 0
     fi
 
-    # 在测试容器内检查 evalscope
-    if docker exec "$test_container" bash -c "command -v evalscope" &>/dev/null; then
+    # 在测试容器内检查 evalscope（使用完整路径查找）
+    if docker exec "$test_container" bash -c "pip show evalscope" &>/dev/null; then
         local ver
-        ver=$(docker exec "$test_container" bash -c "evalscope --version 2>/dev/null || pip show evalscope 2>/dev/null | grep Version | awk '{print \$2}'" 2>/dev/null)
+        ver=$(docker exec "$test_container" bash -c "pip show evalscope 2>/dev/null | grep Version | awk '{print \$2}'" 2>/dev/null)
         log_info "测试容器内 evalscope 已安装: ${ver}"
         return 0
     fi
 
     log_info "在测试容器内安装 evalscope..."
-    docker exec "$test_container" bash -c "pip install evalscope -q" 2>&1
+    docker exec "$test_container" pip install evalscope -q 2>&1
 
-    if docker exec "$test_container" bash -c "command -v evalscope" &>/dev/null; then
+    if docker exec "$test_container" bash -c "pip show evalscope" &>/dev/null; then
         log_info "evalscope 安装完成 ✓"
     else
         log_warn "evalscope 安装可能未成功，请手动进入测试容器检查: docker exec -it ${test_container} bash"
