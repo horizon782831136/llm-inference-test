@@ -145,8 +145,7 @@ run_eval_dataset() {
     done
 
     docker exec "$TEST_CONTAINER" bash -c '\
-        eval "$(/root/miniconda/bin/conda shell.bash hook)" && \
-        conda activate evalscope_env && \
+        export PATH="/root/miniconda/envs/evalscope_env/bin:$PATH" && \
         cd /dir && evalscope eval \
         --model "'"$MODEL_NAME"'" \
         --api-url "'"${EVAL_URL}/v1"'" \

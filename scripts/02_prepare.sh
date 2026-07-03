@@ -172,20 +172,20 @@ ensure_evalscope() {
         return 0
     fi
 
-    # 使用 conda shell.bash hook 方式激活环境（避免 source 权限问题）
-    local conda_prefix='eval "$(/root/miniconda/bin/conda shell.bash hook)" && conda activate evalscope_env'
+    # 直接将 conda env 的 bin 目录加入 PATH（避免 conda activate 的各种兼容问题）
+    local env_bin="/root/miniconda/envs/evalscope_env/bin"
 
-    if docker exec "$test_container" bash -c "${conda_prefix} && pip show evalscope" &>/dev/null; then
+    if docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope" &>/dev/null; then
         local ver
-        ver=$(docker exec "$test_container" bash -c "${conda_prefix} && pip show evalscope 2>/dev/null | grep Version | awk '{print \$2}'" 2>/dev/null)
+        ver=$(docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope 2>/dev/null | grep Version | awk '{print \$2}'" 2>/dev/null)
         log_info "测试容器内 evalscope 已安装: ${ver}"
         return 0
     fi
 
     log_info "在测试容器内安装 evalscope..."
-    docker exec "$test_container" bash -c "${conda_prefix} && pip install evalscope -q" 2>&1
+    docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip install evalscope -q" 2>&1
 
-    if docker exec "$test_container" bash -c "${conda_prefix} && pip show evalscope" &>/dev/null; then
+    if docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope" &>/dev/null; then
         log_info "evalscope 安装完成 ✓"
     else
         log_warn "evalscope 安装可能未成功，请手动进入测试容器检查: docker exec -it ${test_container} bash"
