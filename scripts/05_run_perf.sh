@@ -55,10 +55,15 @@ if ! container_running "$TEST_CONTAINER"; then
     exit 1
 fi
 
-# --- 检查容器内 evalscope ---
-if ! docker exec "$TEST_CONTAINER" bash -c 'export PATH="/root/miniconda/envs/evalscope_env/bin:$PATH" && command -v evalscope' &>/dev/null; then
-    log_error "测试容器内 evalscope 未安装! 请先运行 Phase 2。"
-    exit 1
+# --- 检查容器内 evalscope[perf] ---
+if ! docker exec "$TEST_CONTAINER" bash -c 'export PATH="/root/miniconda/envs/evalscope_env/bin:$PATH" && evalscope perf --help >/dev/null 2>&1'; then
+    log_warn "测试容器内 evalscope[perf] 未安装，尝试自动安装..."
+    docker exec "$TEST_CONTAINER" bash -c 'export PATH="/root/miniconda/envs/evalscope_env/bin:$PATH" && pip install evalscope "evalscope[perf]" -i https://repo.huaweicloud.com/repository/pypi/simple' 2>&1
+    if ! docker exec "$TEST_CONTAINER" bash -c 'export PATH="/root/miniconda/envs/evalscope_env/bin:$PATH" && evalscope perf --help >/dev/null 2>&1'; then
+        log_error "evalscope[perf] 安装失败! 请手动进入测试容器安装: docker exec -it ${TEST_CONTAINER} bash"
+        exit 1
+    fi
+    log_info "evalscope[perf] 安装完成 ✓"
 fi
 
 # --- 运行单次性能测试（在测试容器内执行） ---

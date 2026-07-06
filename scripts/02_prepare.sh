@@ -175,20 +175,20 @@ ensure_evalscope() {
     # 直接将 conda env 的 bin 目录加入 PATH（避免 conda activate 的各种兼容问题）
     local env_bin="/root/miniconda/envs/evalscope_env/bin"
 
-    if docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope" &>/dev/null; then
+    if docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope && evalscope perf --help >/dev/null" &>/dev/null; then
         local ver
         ver=$(docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope 2>/dev/null | grep Version | awk '{print \$2}'" 2>/dev/null)
-        log_info "测试容器内 evalscope 已安装: ${ver}"
+        log_info "测试容器内 evalscope[perf] 已安装: ${ver}"
         return 0
     fi
 
-    log_info "在测试容器内安装 evalscope..."
+    log_info "测试容器内 evalscope 或 evalscope[perf] 缺失，开始安装..."
     docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip install evalscope 'evalscope[perf]' -i https://repo.huaweicloud.com/repository/pypi/simple" 2>&1
 
-    if docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope" &>/dev/null; then
-        log_info "evalscope 安装完成 ✓"
+    if docker exec "$test_container" bash -c "export PATH=${env_bin}:\$PATH && pip show evalscope && evalscope perf --help >/dev/null" &>/dev/null; then
+        log_info "evalscope[perf] 安装完成 ✓"
     else
-        log_warn "evalscope 安装可能未成功，请手动进入测试容器检查: docker exec -it ${test_container} bash"
+        log_warn "evalscope[perf] 安装可能未成功，请手动进入测试容器检查: docker exec -it ${test_container} bash"
     fi
 }
 
