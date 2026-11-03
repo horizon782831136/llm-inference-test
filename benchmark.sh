@@ -32,7 +32,7 @@ for rate in $(echo "${!rate_parallel[@]}" | tr ' ' '\n' | sort -n); do
     echo "Running with rate=$rate, parallel=$parallel"
 
     evalscope perf \
-            --url http://127.0.0.1:30000/v1/completions \
+            --url http://127.0.0.1:30000/v1/chat/completions \
             --model ${MODEL_NAME} \
             --dataset random \
             --api-key "" \
